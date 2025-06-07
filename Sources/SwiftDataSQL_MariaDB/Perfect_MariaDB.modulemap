@@ -1,0 +1,12 @@
+framework module SwiftDataSQL_MariaDB [extern_c] {
+    umbrella header "SwiftDataSQL_MariaDB-Swift.h"
+    export *
+    module * { export * }
+    explicit module PrivateCModule_Private {
+        header "PrivateCModule.h"
+        link "libmariadbclient"
+        export *
+    }
+}
+
+
