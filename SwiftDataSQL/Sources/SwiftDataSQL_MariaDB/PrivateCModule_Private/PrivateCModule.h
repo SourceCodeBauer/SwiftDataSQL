@@ -1,9 +1,6 @@
 //
 //  SwiftDataSQL_MariaDB-Bridging-Header.h
 //  SwiftDataSQL_MariaDB
-//
-//  Created by Juan Solsona on 4/30/25.
-//
 
 #ifndef SwiftDataSQL_MariaDB_Bridging_import_h
 #define SwiftDataSQL_MariaDB_Bridging_Header_h
