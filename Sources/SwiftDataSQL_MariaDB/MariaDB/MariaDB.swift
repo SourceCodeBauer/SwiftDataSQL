@@ -23,7 +23,8 @@
 #endif
 //import mariadbclient
 import Foundation
-import CPrivateMariaDBHeaders 
+import CMariaDBClient 
+
 /// This class permits an UnsafeMutablePointer to be used as a IteratorProtocol
 struct GenerateFromPointer<T> : IteratorProtocol {
 

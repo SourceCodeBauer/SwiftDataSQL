@@ -10,7 +10,8 @@
 #endif
 //import mariadbclient
 import Foundation
-import CPrivateMariaDBHeaders
+import CMariaDBClient 
+
 /// handles mysql prepared statements
 public final class MySQLStmt {
 	private let ptr: UnsafeMutablePointer<MYSQL_STMT>

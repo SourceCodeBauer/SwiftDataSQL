@@ -9,33 +9,48 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "SwiftDataSQL", // Product name
-            targets: ["SwiftDataSQL", "SwiftDataSQL_MariaDB", "SwiftDataMariaDB_Connector"] // Original target names
+            name: "SwiftDataSQL",
+            targets: [
+                "SwiftDataSQL",
+                "SwiftDataSQL_MariaDB",
+                "SwiftDataMariaDB_Connector"
+            ]
         ),
     ],
     targets: [
-        // This C target is now replaced by the binaryTarget
-        // .target(
-        //     name: "CPrivateMariaDBHeaders",
-        //     path: "Sources/SwiftDataSQL_MariaDB/PrivateCModule_Private",
-        //     publicHeadersPath: "."
-        // ),
-
-        .target(
-            name: "SwiftDataSQL_MariaDB", // Original target name
-            dependencies: [
-                // .target(name: "CPrivateMariaDBHeaders") // Old dependency
-            ],
-            // exclude: [ "PrivateCModule_Private/", ], // Still good to exclude if dir exists but not for SPM
-            // linkerSettings: [ ... ] // These are removed
+        .binaryTarget(
+            name: "CMariaDBClient",
+            path: "Frameworks/libmariadbclient.xcframework"
         ),
         .target(
-            name: "SwiftDataSQL", // Original target name
-            dependencies: ["SwiftDataSQL_MariaDB"]
+            name: "SwiftDataSQL_MariaDB",
+            dependencies: [ "CMariaDBClient" ],
+            path: "Sources/SwiftDataSQL_MariaDB", // This directory should now ONLY contain Swift files/subdirs
+            // If PrivateCModule_Private was moved OUTSIDE of Sources/SwiftDataSQL_MariaDB/,
+            // then excluding it here is not strictly needed for this path, but doesn't hurt.
+            // The key is that SPM doesn't find .c/.h files when scanning Sources/SwiftDataSQL_MariaDB/.
+            // If you still have other .h files like SwiftDataSQL_MariaDB.h (auto-generated for Obj-C header)
+            // directly in Sources/SwiftDataSQL_MariaDB/, that's usually fine as SPM handles those.
+            // The problem is user-provided .c/.h files mixed with .swift.
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
         ),
         .target(
-            name: "SwiftDataMariaDB_Connector", // Original target name
-            dependencies: [ "SwiftDataSQL"]
+            name: "SwiftDataSQL",
+            dependencies: [ "SwiftDataSQL_MariaDB" ],
+            path: "Sources/SwiftDataSQL",
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
+        ),
+        .target(
+            name: "SwiftDataMariaDB_Connector",
+            dependencies: [ "SwiftDataSQL" ],
+            path: "Sources/SwiftDataMariaDB_Connector",
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
         )
     ]
 )

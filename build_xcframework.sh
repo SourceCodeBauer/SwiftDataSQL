@@ -5,12 +5,17 @@ set -e
 PACKAGE_ROOT=$(pwd)
 XCFRAMEWORK_FILENAME="libmariadbclient"
 SWIFT_MODULE_NAME="CMariaDBClient"
-MARIADB_C_CONNECTOR_SRC_DIR="Sources/SwiftDataSQL_MariaDB/PrivateCModule_Private"
+
+# Define the correct base path for C connector sources first
+# It's inside the top-level "Sources" directory of the package
+MARIADB_C_CONNECTOR_SRC_DIR="Sources/CConector_Sources/PrivateCModule_Private" # <<< CORRECTED PATH
+
+# Now define other paths based on the correct base path
 MARIADB_HEADERS_DIR="$PACKAGE_ROOT/$MARIADB_C_CONNECTOR_SRC_DIR"
 MARIADB_LIBS_DIR="$PACKAGE_ROOT/$MARIADB_C_CONNECTOR_SRC_DIR/libs"
 
-IOS_FAT_LIB_FILENAME="libmariadbclient-ios.a" # Source for the thin arm64 device lib
-MACOS_FAT_LIB_FILENAME="libmariadbclient-macos.a" # Fat (arm64, x86_64)
+IOS_FAT_LIB_FILENAME="libmariadbclient-ios.a"
+MACOS_FAT_LIB_FILENAME="libmariadbclient-macos.a"
 
 TEMP_BUILD_DIR="xcframework_build_temp"
 XCFW_OUTPUT_DIR="Frameworks"
@@ -50,12 +55,24 @@ XCFW_ARGS=()
 ORIGINAL_IOS_FAT_LIB_PATH="$MARIADB_LIBS_DIR/$IOS_FAT_LIB_FILENAME"
 ORIGINAL_MACOS_FAT_LIB_PATH="$MARIADB_LIBS_DIR/$MACOS_FAT_LIB_FILENAME"
 
+# --- DEBUGGING ---
+echo "--- DEBUG PATHS ---"
+echo "PACKAGE_ROOT: $PACKAGE_ROOT"
+echo "MARIADB_C_CONNECTOR_SRC_DIR (relative): $MARIADB_C_CONNECTOR_SRC_DIR"
+echo "MARIADB_LIBS_DIR (absolute): $MARIADB_LIBS_DIR"
+echo "IOS_FAT_LIB_FILENAME: $IOS_FAT_LIB_FILENAME"
+echo "ORIGINAL_IOS_FAT_LIB_PATH (to be used by lipo): $ORIGINAL_IOS_FAT_LIB_PATH"
+echo "Does ORIGINAL_IOS_FAT_LIB_PATH exist? Output of ls -l:"
+ls -l "$ORIGINAL_IOS_FAT_LIB_PATH" || echo "File NOT FOUND at $ORIGINAL_IOS_FAT_LIB_PATH"
+echo "--- END DEBUG PATHS ---"
+# --- END DEBUGGING ---
+
 # --- Prepare Slices ---
 
 # 1. iOS Device Slice (arm64) - THIN
 IOS_DEVICE_SLICE_STAGING_DIR="$ABSOLUTE_TEMP_BUILD_DIR/iphoneos-arm64"
 IOS_DEVICE_HEADERS_DIR="$IOS_DEVICE_SLICE_STAGING_DIR/Headers"
-IOS_DEVICE_LIB_PATH="$IOS_DEVICE_SLICE_STAGING_DIR/$XCFRAMEWORK_FILENAME.a" # Using consistent output name
+IOS_DEVICE_LIB_PATH="$IOS_DEVICE_SLICE_STAGING_DIR/$XCFRAMEWORK_FILENAME.a"
 echo "🛠️  Preparing slice for iOS Device (arm64)..."
 mkdir -p "$IOS_DEVICE_HEADERS_DIR"
 lipo "$ORIGINAL_IOS_FAT_LIB_PATH" -extract arm64 -output "$IOS_DEVICE_LIB_PATH"
@@ -64,12 +81,12 @@ create_module_files "$IOS_DEVICE_HEADERS_DIR" "$SWIFT_MODULE_NAME"
 XCFW_ARGS+=(-library "$IOS_DEVICE_LIB_PATH" -headers "$IOS_DEVICE_HEADERS_DIR")
 
 # 2. macOS Slice (using the original FAT library)
-MACOS_SLICE_STAGING_DIR="$ABSOLUTE_TEMP_BUILD_DIR/macosx-combined" # Staging dir name
+MACOS_SLICE_STAGING_DIR="$ABSOLUTE_TEMP_BUILD_DIR/macosx-combined"
 MACOS_HEADERS_DIR="$MACOS_SLICE_STAGING_DIR/Headers"
-MACOS_STAGED_LIB_PATH="$MACOS_SLICE_STAGING_DIR/$XCFRAMEWORK_FILENAME.a" # Using consistent output name
+MACOS_STAGED_LIB_PATH="$MACOS_SLICE_STAGING_DIR/$XCFRAMEWORK_FILENAME.a"
 echo "🛠️  Preparing slice for macOS (using fat lib)..."
 mkdir -p "$MACOS_HEADERS_DIR"
-cp "$ORIGINAL_MACOS_FAT_LIB_PATH" "$MACOS_STAGED_LIB_PATH" # Copy the fat lib
+cp "$ORIGINAL_MACOS_FAT_LIB_PATH" "$MACOS_STAGED_LIB_PATH"
 find "$MARIADB_HEADERS_DIR" -maxdepth 1 -name "*.h" -exec cp {} "$MACOS_HEADERS_DIR/" \;
 create_module_files "$MACOS_HEADERS_DIR" "$SWIFT_MODULE_NAME"
 XCFW_ARGS+=(-library "$MACOS_STAGED_LIB_PATH" -headers "$MACOS_HEADERS_DIR")
@@ -95,3 +112,5 @@ echo "🧹 Cleaning up temporary build directory..."
 rm -rf "$ABSOLUTE_TEMP_BUILD_DIR"
 echo "✅ $XCFRAMEWORK_FILENAME.xcframework successfully created in $ABSOLUTE_XCFW_OUTPUT_DIR/!"
 echo "🎉 Process completed."
+
+
