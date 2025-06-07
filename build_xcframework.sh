@@ -9,18 +9,15 @@ MARIADB_C_CONNECTOR_SRC_DIR="Sources/SwiftDataSQL_MariaDB/PrivateCModule_Private
 MARIADB_HEADERS_DIR="$PACKAGE_ROOT/$MARIADB_C_CONNECTOR_SRC_DIR"
 MARIADB_LIBS_DIR="$PACKAGE_ROOT/$MARIADB_C_CONNECTOR_SRC_DIR/libs"
 
-# This is your FAT iOS library (x86_64, arm64)
-IOS_FAT_LIB_FILENAME="libmariadbclient-ios.a"
-MACOS_FAT_LIB_FILENAME="libmariadbclient-macos.a" # Assuming fat (arm64, x86_64)
+IOS_FAT_LIB_FILENAME="libmariadbclient-ios.a" # Source for the thin arm64 device lib
+MACOS_FAT_LIB_FILENAME="libmariadbclient-macos.a" # Fat (arm64, x86_64)
 
 TEMP_BUILD_DIR="xcframework_build_temp"
 XCFW_OUTPUT_DIR="Frameworks"
 # --- End of Configuration ---
 
-# ... (create_module_files function remains the same) ...
 create_module_files() {
-  local headers_dir="$1"
-  local module_name_arg="$2"
+  local headers_dir="$1"; local module_name_arg="$2"
   echo "Creating module.modulemap in $headers_dir for module $module_name_arg"
   cat << EOF > "$headers_dir/module.modulemap"
 module $module_name_arg {
@@ -38,9 +35,8 @@ EOF
 EOF
 }
 
-
 # --- Script Start ---
-echo "🚀 Starting build of $XCFRAMEWORK_FILENAME.xcframework..."
+echo "🚀 Building XCFramework: iOS Device (arm64) + macOS (fat arm64, x86_64) ONLY"
 ABSOLUTE_TEMP_BUILD_DIR="$PACKAGE_ROOT/$TEMP_BUILD_DIR"
 ABSOLUTE_XCFW_OUTPUT_DIR="$PACKAGE_ROOT/$XCFW_OUTPUT_DIR"
 
@@ -51,53 +47,50 @@ mkdir -p "$ABSOLUTE_XCFW_OUTPUT_DIR"
 mkdir -p "$ABSOLUTE_TEMP_BUILD_DIR"
 
 XCFW_ARGS=()
+ORIGINAL_IOS_FAT_LIB_PATH="$MARIADB_LIBS_DIR/$IOS_FAT_LIB_FILENAME"
+ORIGINAL_MACOS_FAT_LIB_PATH="$MARIADB_LIBS_DIR/$MACOS_FAT_LIB_FILENAME"
 
 # --- Prepare Slices ---
 
-# 1. iOS Simulator Slice (using your fat libmariadbclient-ios.a)
-IOS_SIM_SLICE_DIR="$ABSOLUTE_TEMP_BUILD_DIR/ios-arm64_x86_64-simulator"
-IOS_SIM_HEADERS_DIR="$IOS_SIM_SLICE_DIR/Headers"
-echo "🛠️  Preparing slice for iOS Simulator (arm64, x86_64)..."
-mkdir -p "$IOS_SIM_HEADERS_DIR"
-cp "$MARIADB_LIBS_DIR/$IOS_FAT_LIB_FILENAME" "$IOS_SIM_SLICE_DIR/$XCFRAMEWORK_FILENAME.a"
-find "$MARIADB_HEADERS_DIR" -maxdepth 1 -name "*.h" -exec cp {} "$IOS_SIM_HEADERS_DIR/" \;
-create_module_files "$IOS_SIM_HEADERS_DIR" "$SWIFT_MODULE_NAME"
-XCFW_ARGS+=(-library "$IOS_SIM_SLICE_DIR/$XCFRAMEWORK_FILENAME.a" -headers "$IOS_SIM_HEADERS_DIR")
-
-# 2. iOS Device Slice (extracting arm64 from the fat iOS library)
-IOS_DEVICE_SLICE_DIR="$ABSOLUTE_TEMP_BUILD_DIR/ios-arm64"
-IOS_DEVICE_HEADERS_DIR="$IOS_DEVICE_SLICE_DIR/Headers"
-IOS_DEVICE_THIN_LIB_PATH="$IOS_DEVICE_SLICE_DIR/$XCFRAMEWORK_FILENAME.a"
+# 1. iOS Device Slice (arm64) - THIN
+IOS_DEVICE_SLICE_STAGING_DIR="$ABSOLUTE_TEMP_BUILD_DIR/iphoneos-arm64"
+IOS_DEVICE_HEADERS_DIR="$IOS_DEVICE_SLICE_STAGING_DIR/Headers"
+IOS_DEVICE_LIB_PATH="$IOS_DEVICE_SLICE_STAGING_DIR/$XCFRAMEWORK_FILENAME.a" # Using consistent output name
 echo "🛠️  Preparing slice for iOS Device (arm64)..."
 mkdir -p "$IOS_DEVICE_HEADERS_DIR"
-echo "Extracting arm64 from $MARIADB_LIBS_DIR/$IOS_FAT_LIB_FILENAME to $IOS_DEVICE_THIN_LIB_PATH"
-lipo "$MARIADB_LIBS_DIR/$IOS_FAT_LIB_FILENAME" -thin arm64 -output "$IOS_DEVICE_THIN_LIB_PATH"
+lipo "$ORIGINAL_IOS_FAT_LIB_PATH" -extract arm64 -output "$IOS_DEVICE_LIB_PATH"
 find "$MARIADB_HEADERS_DIR" -maxdepth 1 -name "*.h" -exec cp {} "$IOS_DEVICE_HEADERS_DIR/" \;
 create_module_files "$IOS_DEVICE_HEADERS_DIR" "$SWIFT_MODULE_NAME"
-XCFW_ARGS+=(-library "$IOS_DEVICE_THIN_LIB_PATH" -headers "$IOS_DEVICE_HEADERS_DIR")
+XCFW_ARGS+=(-library "$IOS_DEVICE_LIB_PATH" -headers "$IOS_DEVICE_HEADERS_DIR")
 
-# 3. macOS Slice (assuming fat binary for arm64 and x86_64)
-MACOS_SLICE_DIR="$ABSOLUTE_TEMP_BUILD_DIR/macos-arm64_x86_64"
-MACOS_HEADERS_DIR="$MACOS_SLICE_DIR/Headers"
-echo "🛠️  Preparing slice for macOS (arm64, x86_64)..."
+# 2. macOS Slice (using the original FAT library)
+MACOS_SLICE_STAGING_DIR="$ABSOLUTE_TEMP_BUILD_DIR/macosx-combined" # Staging dir name
+MACOS_HEADERS_DIR="$MACOS_SLICE_STAGING_DIR/Headers"
+MACOS_STAGED_LIB_PATH="$MACOS_SLICE_STAGING_DIR/$XCFRAMEWORK_FILENAME.a" # Using consistent output name
+echo "🛠️  Preparing slice for macOS (using fat lib)..."
 mkdir -p "$MACOS_HEADERS_DIR"
-cp "$MARIADB_LIBS_DIR/$MACOS_FAT_LIB_FILENAME" "$MACOS_SLICE_DIR/$XCFRAMEWORK_FILENAME.a"
+cp "$ORIGINAL_MACOS_FAT_LIB_PATH" "$MACOS_STAGED_LIB_PATH" # Copy the fat lib
 find "$MARIADB_HEADERS_DIR" -maxdepth 1 -name "*.h" -exec cp {} "$MACOS_HEADERS_DIR/" \;
 create_module_files "$MACOS_HEADERS_DIR" "$SWIFT_MODULE_NAME"
-XCFW_ARGS+=(-library "$MACOS_SLICE_DIR/$XCFRAMEWORK_FILENAME.a" -headers "$MACOS_HEADERS_DIR")
+XCFW_ARGS+=(-library "$MACOS_STAGED_LIB_PATH" -headers "$MACOS_HEADERS_DIR")
 
 # --- Build the XCFramework ---
-if [ ${#XCFW_ARGS[@]} -lt 2 ]; then # Expecting at least device and macOS, ideally sim too
-  echo "❌ Not enough library slices were prepared. Need at least iOS device and macOS. Aborting."
+if [ ${#XCFW_ARGS[@]} -lt 2 ]; then
+  echo "❌ Not enough library slices were prepared. Need iOS device and macOS. Aborting."
   exit 1
 fi
 
 echo "🏗️  Building $XCFRAMEWORK_FILENAME.xcframework..."
+echo "xcodebuild -create-xcframework \\"
+for arg_group_index in $(seq 0 2 $((${#XCFW_ARGS[@]} - 1))); do
+    echo "    ${XCFW_ARGS[arg_group_index]} ${XCFW_ARGS[arg_group_index+1]} \\"
+done
+echo "    -output \"$ABSOLUTE_XCFW_OUTPUT_DIR/$XCFRAMEWORK_FILENAME.xcframework\""
+
 xcodebuild -create-xcframework \
     "${XCFW_ARGS[@]}" \
     -output "$ABSOLUTE_XCFW_OUTPUT_DIR/$XCFRAMEWORK_FILENAME.xcframework"
 
-# ... (rest of script: cleanup, optional zip/checksum) ...
 echo "🧹 Cleaning up temporary build directory..."
 rm -rf "$ABSOLUTE_TEMP_BUILD_DIR"
 echo "✅ $XCFRAMEWORK_FILENAME.xcframework successfully created in $ABSOLUTE_XCFW_OUTPUT_DIR/!"
