@@ -1,0 +1,40 @@
+module CPrivateMariaDBHeaders [extern_c] {
+    umbrella header "PrivateCModule.h"
+    export *
+    /*
+    header "mariadb_com.h"
+    header "mariadb_version.h"
+    header "ma_list.h"
+    header "mariadb_ctype.h"
+    header "mariadb_stmt.h"
+     header "mysql.h"
+     header "mariadb.h"
+     */
+/*
+    header "ma_global.h"
+    header "ma_io.h"
+    header "ma_tls.h"
+    header "config.h"
+    header "mariadb_dyncol.h"
+    header "ma_pvio.h"
+    header "ma_server_error.h"
+    header "ma_pthread.h"
+    header "ma_crypt.h"
+    header "mariadb_async.h"
+    header "ma_config.h"
+    header "ma_context.h"
+    header "ma_sys.h"
+    header "plugin_auth_common.h"
+    header "plugin_auth.h"
+    header "client_plugin.h"
+    header "ma_string.h"
+    header "ma_sha1.h"
+    header "mysqld_error.h"
+    header "ma_common.h"
+    header "ma_hash.h"
+    header "errmsg.h"
+     
+     */
+}
+
+
