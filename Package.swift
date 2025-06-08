@@ -5,7 +5,7 @@ let package = Package(
     name: "SwiftDataSQL",
     platforms: [
         .macOS(.v15),
-        .iOS(.v14)
+        .iOS(.v17)
     ],
     products: [
         .library(
